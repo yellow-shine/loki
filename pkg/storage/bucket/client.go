@@ -19,6 +19,7 @@ import (
 	"github.com/grafana/loki/v3/pkg/storage/bucket/filesystem"
 	"github.com/grafana/loki/v3/pkg/storage/bucket/gcs"
 	"github.com/grafana/loki/v3/pkg/storage/bucket/oss"
+	"github.com/grafana/loki/v3/pkg/storage/bucket/cos"
 	"github.com/grafana/loki/v3/pkg/storage/bucket/s3"
 	"github.com/grafana/loki/v3/pkg/storage/bucket/swift"
 )
@@ -45,12 +46,15 @@ const (
 	// BOS is the value for the Baidu Cloud BOS storage backend
 	BOS = "bos"
 
+	// COS is the value for the Tencent Cloud COS storage backend
+	COS = "cos"
+
 	// validPrefixCharactersRegex allows only alphanumeric characters to prevent subtle bugs and simplify validation
 	validPrefixCharactersRegex = `^[\da-zA-Z]+$`
 )
 
 var (
-	SupportedBackends = []string{S3, GCS, Azure, Swift, Filesystem, Alibaba, BOS}
+	SupportedBackends = []string{S3, GCS, Azure, Swift, Filesystem, Alibaba, BOS, COS}
 
 	ErrUnsupportedStorageBackend        = errors.New("unsupported storage backend")
 	ErrInvalidCharactersInStoragePrefix = errors.New("storage prefix contains invalid characters, it may only contain digits and English alphabet letters")
@@ -83,6 +87,7 @@ type Config struct {
 	Filesystem filesystem.Config `yaml:"filesystem"`
 	Alibaba    oss.Config        `yaml:"alibaba"`
 	BOS        bos.Config        `yaml:"bos"`
+	COS        cos.Config        `yaml:"cos"`
 
 	StoragePrefix string `yaml:"storage_prefix"`
 
@@ -158,7 +163,7 @@ func (cfg *Config) disableRetries(backend string) error {
 		cfg.Azure.MaxRetries = 1
 	case Swift:
 		cfg.Swift.MaxRetries = 1
-	case Filesystem, Alibaba, BOS:
+	case Filesystem, Alibaba, BOS, COS:
 		// do nothing
 	default:
 		return fmt.Errorf("cannot disable retries for backend: %s", backend)
@@ -177,7 +182,7 @@ func (cfg *Config) configureTransport(backend string, rt http.RoundTripper) erro
 		cfg.Azure.Transport = rt
 	case Swift:
 		cfg.Swift.HTTP.Transport = rt
-	case Filesystem, Alibaba, BOS:
+	case Filesystem, Alibaba, BOS, COS:
 		// do nothing
 	default:
 		return fmt.Errorf("cannot configure transport for backend: %s", backend)
@@ -209,6 +214,8 @@ func NewClient(ctx context.Context, backend string, cfg Config, name string, log
 		client, err = oss.NewBucketClient(cfg.Alibaba, name, logger)
 	case BOS:
 		client, err = bos.NewBucketClient(cfg.BOS, name, logger)
+	case COS:
+		client, err = cos.NewBucketClient(cfg.COS, name, logger)
 	default:
 		return nil, ErrUnsupportedStorageBackend
 	}

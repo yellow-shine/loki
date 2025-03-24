@@ -164,6 +164,7 @@ require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.6 // indirect
+	github.com/clbanning/mxj v1.8.4 // indirect
 	github.com/containerd/containerd v1.7.25 // indirect
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/ebitengine/purego v0.8.1 // indirect
@@ -183,6 +184,7 @@ require (
 	github.com/mdlayher/vsock v1.2.1 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
+	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/ncw/swift v1.0.53 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pires/go-proxyproto v0.7.0 // indirect
@@ -190,6 +192,8 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1129 // indirect
+	github.com/tencentyun/cos-go-sdk-v5 v0.7.40 // indirect
 	github.com/tklauser/go-sysconf v0.3.13 // indirect
 	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -408,3 +412,7 @@ replace github.com/grafana/loki/pkg/push => ./pkg/push
 
 // leodido fork his project to continue support
 replace github.com/influxdata/go-syslog/v3 => github.com/leodido/go-syslog/v4 v4.2.0
+
+replace github.com/thanos-io/objstore => github.com/yellow-shine/objstore v0.0.0-20250327053612-0eac80b1df51
+
+replace github.com/tencentyun/cos-go-sdk-v5 => github.com/yellow-shine/cos-go-sdk-v5 v0.0.0-20250324084202-fd0081c12590

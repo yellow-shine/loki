@@ -75,7 +75,7 @@ ifeq ($(CI),true)
 	_               := $(shell ./tools/ensure-buildx-builder.sh)
 	OCI_BUILD       := DOCKER_BUILDKIT=1 docker buildx build $(OCI_PLATFORMS) $(OCI_BUILD_ARGS)
 else
-	OCI_BUILD       := DOCKER_BUILDKIT=1 docker build $(OCI_BUILD_ARGS)
+	OCI_BUILD       := DOCKER_BUILDKIT=1 nerdctl build $(OCI_BUILD_ARGS)
 endif
 
 BUILD_OCI_PUSH  := $(OCI_BUILD) $(OCI_PUSH_ARGS)
