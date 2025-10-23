@@ -8,6 +8,7 @@ import (
 
 // Config holds the configuration for Alibaba Cloud OSS client
 type Config struct {
+	Region          string         `yaml:"region"`
 	Endpoint        string         `yaml:"endpoint"`
 	Bucket          string         `yaml:"bucket"`
 	AccessKeyID     string         `yaml:"access_key_id"`
@@ -21,6 +22,7 @@ func (cfg *Config) RegisterFlags(f *flag.FlagSet) {
 
 // RegisterFlagsWithPrefix registers the flags for Alibaba Cloud OSS storage config with prefix
 func (cfg *Config) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
+	f.StringVar(&cfg.Region, prefix+"oss.region", "", "Region of OSS bucket.")
 	f.StringVar(&cfg.Bucket, prefix+"oss.bucketname", "", "Name of OSS bucket.")
 	f.StringVar(&cfg.Endpoint, prefix+"oss.endpoint", "", "Endpoint to connect to.")
 	f.StringVar(&cfg.AccessKeyID, prefix+"oss.access-key-id", "", "alibabacloud Access Key ID")
