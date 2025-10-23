@@ -9,6 +9,7 @@ import (
 // NewBucketClient creates a new Alibaba Cloud OSS bucket client
 func NewBucketClient(cfg Config, component string, logger log.Logger) (objstore.Bucket, error) {
 	ossCfg := oss.Config{
+		Region:          cfg.Region,
 		Endpoint:        cfg.Endpoint,
 		Bucket:          cfg.Bucket,
 		AccessKeyID:     cfg.AccessKeyID,
