@@ -79,10 +79,6 @@ func (p *PrefixedBucket) GetRange(ctx context.Context, name string, off int64, l
 	return p.bkt.GetRange(ctx, conditionalPrefix(p.prefix, name), off, length)
 }
 
-func (b *PrefixedBucket) GetAndReplace(ctx context.Context, name string, f func(io.Reader) (io.Reader, error)) error {
-	return b.bkt.GetAndReplace(ctx, conditionalPrefix(b.prefix, name), f)
-}
-
 // Exists checks if the given object exists in the bucket.
 func (p *PrefixedBucket) Exists(ctx context.Context, name string) (bool, error) {
 	return p.bkt.Exists(ctx, conditionalPrefix(p.prefix, name))
@@ -105,8 +101,8 @@ func (p *PrefixedBucket) Attributes(ctx context.Context, name string) (ObjectAtt
 
 // Upload the contents of the reader as an object into the bucket.
 // Upload should be idempotent.
-func (p *PrefixedBucket) Upload(ctx context.Context, name string, r io.Reader) error {
-	return p.bkt.Upload(ctx, conditionalPrefix(p.prefix, name), r)
+func (p *PrefixedBucket) Upload(ctx context.Context, name string, r io.Reader, opts ...ObjectUploadOption) error {
+	return p.bkt.Upload(ctx, conditionalPrefix(p.prefix, name), r, opts...)
 }
 
 // Delete removes the object with the given name.

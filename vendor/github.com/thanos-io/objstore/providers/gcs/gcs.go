@@ -37,8 +37,6 @@ var DefaultConfig = Config{
 	HTTPConfig: exthttp.DefaultHTTPConfig,
 }
 
-var _ objstore.Bucket = &Bucket{}
-
 // Config stores the configuration for gcs bucket.
 type Config struct {
 	Bucket         string `yaml:"bucket"`
@@ -275,7 +273,7 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 
 // Get returns a reader for the given object name.
 func (b *Bucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
-	r, err := b.get(ctx, name)
+	r, err := b.bkt.Object(name).NewReader(ctx)
 	if err != nil {
 		return r, err
 	}
@@ -286,10 +284,6 @@ func (b *Bucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
 			return r.Attrs.Size, nil
 		},
 	}, nil
-}
-
-func (b *Bucket) get(ctx context.Context, name string) (*storage.Reader, error) {
-	return b.bkt.Object(name).NewReader(ctx)
 }
 
 // GetRange returns a new range reader for the given object name and range.
@@ -331,72 +325,28 @@ func (b *Bucket) Handle() *storage.BucketHandle {
 func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 	if _, err := b.bkt.Object(name).Attrs(ctx); err == nil {
 		return true, nil
-	} else if err != storage.ErrObjectNotExist {
+	} else if !b.IsObjNotFoundErr(err) {
 		return false, err
 	}
 	return false, nil
 }
 
 // Upload writes the file specified in src to remote GCS location specified as target.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
-	return b.upload(ctx, name, r, 0, false)
-}
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
+	w := b.bkt.Object(name).NewWriter(ctx)
 
-// Upload writes the file specified in src to remote GCS location specified as target.
-func (b *Bucket) upload(ctx context.Context, name string, r io.Reader, generation int64, requireNewObject bool) error {
-	o := b.bkt.Object(name)
-
-	var w *storage.Writer
-	if generation != 0 {
-		o = o.If(storage.Conditions{GenerationMatch: generation})
-	}
-	if requireNewObject {
-		o = o.If(storage.Conditions{DoesNotExist: true})
-	}
-	w = o.NewWriter(ctx)
-
+	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
 	// if `chunkSize` is 0, we don't set any custom value for writer's ChunkSize.
 	// It uses whatever the default value https://pkg.go.dev/google.golang.org/cloud/storage#Writer
 	if b.chunkSize > 0 {
 		w.ChunkSize = b.chunkSize
+		w.ContentType = uploadOpts.ContentType
 	}
 
 	if _, err := io.Copy(w, r); err != nil {
 		return err
 	}
 	return w.Close()
-}
-
-func (b *Bucket) GetAndReplace(ctx context.Context, name string, f func(io.Reader) (io.Reader, error)) error {
-	var generation int64
-	var missing bool
-
-	// Get the current object
-	storageReader, err := b.get(ctx, name)
-	if err != nil {
-		if !errors.Is(err, storage.ErrObjectNotExist) {
-			return err
-		}
-		missing = true
-	}
-
-	// redefine the callback reader so a nil originalContent (with concrete type but no value)
-	// doesn't pass nil-checks in the callback
-	var reader io.Reader
-	// If object exists, ensure we close the reader when done
-	if !missing {
-		generation = storageReader.Attrs.Generation
-		reader = storageReader
-		defer storageReader.Close()
-	}
-
-	newContent, err := f(reader)
-	if err != nil {
-		return err
-	}
-
-	// Upload with the previous generation, or mustNotExist for new objects
-	return b.upload(ctx, name, newContent, generation, missing)
 }
 
 // Delete removes the object with the given name.

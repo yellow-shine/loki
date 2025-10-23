@@ -365,12 +365,17 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, uploadOpts ...objstore.ObjectUploadOption) error {
 	level.Debug(b.logger).Log("msg", "uploading blob", "blob", name)
 	blobClient := b.containerClient.NewBlockBlobClient(name)
+
+	uploadOptions := objstore.ApplyObjectUploadOptions(uploadOpts...)
 	opts := &blockblob.UploadStreamOptions{
 		BlockSize:   3 * 1024 * 1024,
 		Concurrency: 4,
+		HTTPHeaders: &blob.HTTPHeaders{
+			BlobContentType: &uploadOptions.ContentType,
+		},
 	}
 	if _, err := blobClient.UploadStream(ctx, r, opts); err != nil {
 		return errors.Wrapf(err, "cannot upload Azure blob, address: %s", name)
@@ -428,8 +433,4 @@ func NewTestBucket(t testing.TB, component string) (objstore.Bucket, func(), err
 // Close bucket.
 func (b *Bucket) Close() error {
 	return nil
-}
-
-func (b *Bucket) GetAndReplace(ctx context.Context, name string, f func(io.Reader) (io.Reader, error)) error {
-	panic("unimplemented: Azure.GetAndReplace")
 }

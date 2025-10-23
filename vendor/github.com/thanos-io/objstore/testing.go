@@ -287,10 +287,6 @@ func (d *delayingBucket) Get(ctx context.Context, name string) (io.ReadCloser, e
 	return d.bkt.Get(ctx, name)
 }
 
-func (b *delayingBucket) GetAndReplace(ctx context.Context, name string, f func(io.Reader) (io.Reader, error)) error {
-	panic("unimplemented: delayingBucket.GetAndReplace")
-}
-
 func (d *delayingBucket) Attributes(ctx context.Context, name string) (ObjectAttributes, error) {
 	time.Sleep(d.delay)
 	return d.bkt.Attributes(ctx, name)
@@ -320,9 +316,9 @@ func (d *delayingBucket) Exists(ctx context.Context, name string) (bool, error) 
 	return d.bkt.Exists(ctx, name)
 }
 
-func (d *delayingBucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (d *delayingBucket) Upload(ctx context.Context, name string, r io.Reader, opts ...ObjectUploadOption) error {
 	time.Sleep(d.delay)
-	return d.bkt.Upload(ctx, name, r)
+	return d.bkt.Upload(ctx, name, r, opts...)
 }
 
 func (d *delayingBucket) Delete(ctx context.Context, name string) error {

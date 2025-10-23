@@ -18,6 +18,7 @@ import (
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	alioss "github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"github.com/aliyun/credentials-go/credentials"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -32,6 +33,7 @@ const PartSize = 1024 * 1024 * 128
 
 // Config stores the configuration for oss bucket.
 type Config struct {
+	Region          string `yaml:"region"`
 	Endpoint        string `yaml:"endpoint"`
 	Bucket          string `yaml:"bucket"`
 	AccessKeyID     string `yaml:"access_key_id"`
@@ -71,24 +73,26 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 func (b *Bucket) Provider() objstore.ObjProvider { return objstore.ALIYUNOSS }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(_ context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
 	// TODO(https://github.com/thanos-io/thanos/issues/678): Remove guessing length when minio provider will support multipart upload without this.
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get size apriori to upload %s", name)
 	}
 
+	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
+
 	chunksnum, lastslice := int(math.Floor(float64(size)/PartSize)), size%PartSize
 
 	ncloser := io.NopCloser(r)
 	switch chunksnum {
 	case 0:
-		if err := b.bucket.PutObject(name, ncloser); err != nil {
+		if err := b.bucket.PutObject(name, ncloser, oss.ContentType(uploadOpts.ContentType)); err != nil {
 			return errors.Wrap(err, "failed to upload oss object")
 		}
 	default:
 		{
-			init, err := b.bucket.InitiateMultipartUpload(name)
+			init, err := b.bucket.InitiateMultipartUpload(name, oss.ContentType(uploadOpts.ContentType))
 			if err != nil {
 				return errors.Wrap(err, "failed to initiate multi-part upload")
 			}
@@ -169,12 +173,10 @@ func NewBucket(logger log.Logger, conf []byte, component string, wrapRoundtrippe
 	return NewBucketWithConfig(logger, config, component, wrapRoundtripper)
 }
 
-// NewBucketWithConfig returns a new Bucket using the provided oss config struct.
-func NewBucketWithConfig(logger log.Logger, config Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
-	if err := validate(config); err != nil {
-		return nil, err
-	}
+// buildClientOptions creates base client options including HTTP transport wrapper if provided.
+func buildClientOptions(wrapRoundtripper func(http.RoundTripper) http.RoundTripper) ([]alioss.ClientOption, error) {
 	var clientOptions []alioss.ClientOption
+
 	if wrapRoundtripper != nil {
 		rt, err := exthttp.DefaultTransport(exthttp.DefaultHTTPConfig)
 		if err != nil {
@@ -186,9 +188,53 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 			}
 		})
 	}
-	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, clientOptions...)
+
+	return clientOptions, nil
+}
+
+// createOSSClient creates an OSS client using either static credentials or IAM credentials.
+func createOSSClient(config Config, baseOptions []alioss.ClientOption) (*alioss.Client, error) {
+	// Use static credentials if provided
+	if config.AccessKeyID != "" && config.AccessKeySecret != "" {
+		return alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, baseOptions...)
+	}
+
+	// Otherwise use IAM credentials
+	cred, err := credentials.NewCredential(nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "create aliyun oss client failed")
+		return nil, errors.Wrap(err, "new credential")
+	}
+
+	// Merge base options with credential-specific options
+	clientOptions := append(baseOptions,
+		alioss.SetCredentialsProvider(&provider{cred: cred}),
+		alioss.Region(config.Region),
+		alioss.AuthVersion(alioss.AuthV4),
+	)
+
+	client, err := alioss.New(config.Endpoint, "", "", clientOptions...)
+	if err != nil {
+		return nil, errors.Wrap(err, "new oss client")
+	}
+
+	return client, nil
+}
+
+// NewBucketWithConfig returns a new Bucket using the provided oss config struct.
+func NewBucketWithConfig(logger log.Logger, config Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
+	if err := validate(config); err != nil {
+		return nil, err
+	}
+	// Build base client options
+	clientOptions, err := buildClientOptions(wrapRoundtripper)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create OSS client with either static credentials or IAM credentials
+	client, err := createOSSClient(config, clientOptions)
+	if err != nil {
+		return nil, err
 	}
 	bk, err := client.Bucket(config.Bucket)
 	if err != nil {
@@ -209,9 +255,6 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 func validate(config Config) error {
 	if config.Endpoint == "" || config.Bucket == "" {
 		return errors.New("aliyun oss endpoint or bucket is not present in config file")
-	}
-	if config.AccessKeyID == "" || config.AccessKeySecret == "" {
-		return errors.New("aliyun oss access_key_id or access_key_secret is not present in config file")
 	}
 
 	return nil
@@ -425,8 +468,4 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 		}
 	}
 	return false
-}
-
-func (b *Bucket) GetAndReplace(ctx context.Context, name string, f func(io.Reader) (io.Reader, error)) error {
-	panic("unimplemented: OSS.GetAndReplace")
 }
