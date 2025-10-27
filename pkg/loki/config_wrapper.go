@@ -602,7 +602,7 @@ func applyStorageConfig(cfg, defaults *ConfigWrapper) error {
 		configsFound++
 
 		applyConfig = func(r *ConfigWrapper) {
-			r.Ruler.StoreConfig.Type = "alibaba"
+			r.Ruler.StoreConfig.Type = "alibabacloud"
 			r.Ruler.StoreConfig.AlibabaCloud = r.Common.Storage.AlibabaCloud
 			r.StorageConfig.AlibabaStorageConfig = r.Common.Storage.AlibabaCloud
 		}

@@ -86,7 +86,7 @@ type Config struct {
 	Azure      azure.Config      `yaml:"azure"`
 	Swift      swift.Config      `yaml:"swift"`
 	Filesystem filesystem.Config `yaml:"filesystem"`
-	Alibaba    oss.Config        `yaml:"alibaba"`
+	Alibaba    oss.Config        `yaml:"alibabacloud"`
 	BOS        bos.Config        `yaml:"bos"`
 	COS        cos.Config        `yaml:"cos"`
 
